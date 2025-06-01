@@ -1,6 +1,6 @@
 use chrono::{DateTime, Local, TimeZone};
 use clap::Parser;
-use std::mem::zeroed;
+use std::{io::Error, mem::zeroed};
 
 /// command line interface for a ntp_client
 #[derive(Parser, Debug)]
@@ -60,6 +60,13 @@ fn main() {
         let err_msg = format!("Unable to parse {} according to {}", t_, std);
         let t = parser(t_).expect(&err_msg);
         Clock::set(t);
+        let maybe_error = Error::last_os_error();
+        let os_error_code = &maybe_error.raw_os_error();
+        match os_error_code {
+            Some(0) => {}
+            Some(_) => eprintln!("Unable to set the time: {:?}", maybe_error),
+            None => {}
+        }
     }
 
     let now = Clock::get();
