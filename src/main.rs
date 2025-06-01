@@ -6,15 +6,15 @@ use std::mem::zeroed;
 #[derive(Parser, Debug)]
 #[command(version,about,long_about=None)]
 struct Args {
-    ///action command
+    /// Action command: "get" or "set"
     #[arg(long)]
     action: String,
-    ///std command
+    /// Format standard: "rfc2822", "rfc3339", or "timestamp"
     #[arg(short, long = "use-standard")]
     std: String,
-    ///datetime command
+    /// Datetime string (required only if action is "set")
     #[arg(long)]
-    datetime: String,
+    datetime: Option<String>,
 }
 
 struct Clock;
@@ -48,7 +48,10 @@ fn main() {
     };
     let std = args.std.as_str();
     if action == "set" {
-        let t_ = args.datetime.as_str();
+        let t_ = args
+            .datetime
+            .as_deref()
+            .expect("`--datetime` is required when using `--action set`");
         let parser = match std {
             "rfc2822" => DateTime::parse_from_rfc2822,
             "rfc3339" => DateTime::parse_from_rfc3339,
