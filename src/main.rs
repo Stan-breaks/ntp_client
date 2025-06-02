@@ -1,7 +1,62 @@
-use chrono::{DateTime, Local, TimeZone};
+use chrono::{DateTime, Local, TimeZone, Timelike, Utc};
 use clap::Parser;
 use std::{io::Error, mem::zeroed};
 
+const NTP_MESSAGE_LENGTH: usize = 48;
+const NTP_TO_UNIX_SECONDS: i64 = 2_208_988_800;
+const LOCAL_ADDR: &'static str = "0.0.0.0:12300";
+
+#[derive(Debug, Clone, Default, Copy)]
+struct NTPTimestamp {
+    seconds: u32,
+    fraction: u32,
+}
+
+struct NTPMessage {
+    data: [u8; NTP_MESSAGE_LENGTH],
+}
+
+#[derive(Debug)]
+struct NTPResult {
+    t1: DateTime<Utc>,
+    t2: DateTime<Utc>,
+    t3: DateTime<Utc>,
+    t4: DateTime<Utc>,
+}
+
+impl NTPResult {
+    fn offset(&self) -> i64 {
+        let duration = (self.t2 - self.t1) + (self.t4 - self.t3);
+        duration.num_milliseconds() / 2
+    }
+    fn delay(&self) -> i64 {
+        let duration = (self.t4 - self.t1) - (self.t3 - self.t2);
+        duration.num_milliseconds()
+    }
+}
+
+impl From<NTPTimestamp> for DateTime<Utc> {
+    fn from(value: NTPTimestamp) -> Self {
+        let secs = value.seconds as i64 - NTP_TO_UNIX_SECONDS;
+        let mut nanos = value.fraction as f64;
+        nanos *= 1e9;
+        nanos /= 2_f64.powi(32);
+        Utc.timestamp(secs, nanos as u32)
+    }
+}
+
+impl From<DateTime<Utc>> for NTPTimestamp {
+    fn from(utc: DateTime<Utc>) -> Self {
+        let secs = utc.timestamp() + NTP_TO_UNIX_SECONDS;
+        let mut fraction = utc.nanosecond() as f64;
+        fraction *= 2_f64.powi(32);
+        fraction /= 1e9;
+        NTPTimestamp {
+            seconds: secs as u32,
+            fraction: fraction as u32,
+        }
+    }
+}
 /// command line interface for a ntp_client
 #[derive(Parser, Debug)]
 #[command(version,about,long_about=None)]
